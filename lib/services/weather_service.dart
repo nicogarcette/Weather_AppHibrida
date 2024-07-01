@@ -1,7 +1,5 @@
 import 'dart:convert';
-
 import 'package:flutter_application_demo/models/weather_model.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
@@ -10,11 +8,20 @@ class WeatherService{
   static const BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
   final String API_KEY;
   
-
-
   WeatherService(this.API_KEY);
 
+  Future<Weather> getWeatherByPosition(Position position) async{
+    
+    Uri url = Uri.parse('$BASE_URL?lat=${position.latitude}&lon=${position.longitude}&appid=$API_KEY&units=metric');
 
+    final response = await http.get(url);
+
+    if(response.statusCode != 200){
+      throw Exception('Fallo el carga de clima');
+    }
+
+    return Weather.fromJson(jsonDecode(response.body));
+  }
 
   Future<Weather> getWeather(String cityName) async{
     
@@ -24,9 +31,30 @@ class WeatherService{
       throw Exception('Fallo el carga de clima');
     }
 
-    print(jsonDecode(response.body));
-
     return Weather.fromJson(jsonDecode(response.body));
+  }
+
+  Future<Position> getPosition() async{
+
+    try{
+
+      LocationPermission permission = await Geolocator.checkPermission();
+
+      if(permission == LocationPermission.denied){
+
+        permission = await Geolocator.requestPermission();
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high
+      );
+  
+      return position;
+
+    }catch(e){
+      
+      throw e;
+    }
   }
 
   Future<String> getCurrentCity() async{
@@ -46,30 +74,10 @@ class WeatherService{
           desiredAccuracy: LocationAccuracy.high
       );
   
-      //print("Position-> latitude:"+ position.latitude.toString());
-      //print("Position-> longitude:"+ position.longitude.toString());
-
-      // convertimos la locacion en un a lista
-      //List<Placemark> placemark = await placemarkFromCoordinates(position.latitude!,position.longitude!);
-
-      // extraemos la ciudad del primer elemento
-
       String city = await getCityFromCoordinates(position.latitude, position.longitude);
-
-      // if (placemark != null && placemark.isNotEmpty) {
-      //
-      //   print(placemark);
-      //   String? city = placemark[0].locality;
-      //   return city ?? "Unknown City";
-      // } else {
-      //   return "Unknown City";
-      // }
-
-      //String? city = placemark[0].locality;
 
       return city ?? "error";
     }catch(e){
-      //print("Error al obtener la ubicación: $e");
       return "error";
     }
 
@@ -110,9 +118,5 @@ class WeatherService{
       return "Unknown City";
     }
   }
-
-
-
-
 
 }
